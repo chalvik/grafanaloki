@@ -1,0 +1,70 @@
+x-def-logging: &default-logging
+  logging:
+    # Указываем, какой драйвер использовать
+    driver: "loki"
+    options:
+      # Адрес Loki, куда складывать логи
+      # Обратите внимание, что здесь используется не имя сервиса loki, а локальный хост, на который проброшен порт Loki,
+      # это сделано потому, что логи будет писать docker engine, котрый расположен на хостовой машине,
+      # и он не знает имени хоста контейнера Loki, которое ему присвоил compose во внутренней сети проекта.
+      loki-url: "http://localhost:3100/loki/api/v1/push"
+      loki-batch-size: "100"
+      loki-retries: 2
+      loki-max-backoff: 1000ms
+      loki-timeout: 1s
+
+
+services:
+  nginx:
+    image: nginx:1.24
+    restart: unless-stopped
+    <<: *default-logging
+    ports:
+      - "${APP_PORT}:80"
+    volumes:
+      - .:/var/app/
+      - ./.docker/logs/nginx/:/var/log/nginx
+      - ./.docker/config/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - app
+      - net-global
+
+
+  loki:
+    hostname: loki
+    image: grafana/loki:latest
+    environment:
+      TZ: ${SYSTEM_TIMEZONE:-Europe/Moscow}
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - app
+      - net-global
+
+  grafana:
+    hostname: grafana
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      # Включим доступ без авторизации
+      - GF_AUTH_ANONYMOUS_ENABLED=true # Не используйте **ANONYMOUS** настройки в проде
+      # Дадим права администратора при анонимном входе
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - TZ=${SYSTEM_TIMEZONE:-Europe/Moscow}
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - app
+      - net-global
+
+networks:
+  app:
+    driver: bridge
+  net-global:
+    name: net-global
+    external: true
+
+volumes:
+  mysql:
+  redis:
