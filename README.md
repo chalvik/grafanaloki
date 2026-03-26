@@ -10,6 +10,8 @@ docker plugin install grafana/loki-docker-driver:2.9.4 --alias loki --grant-all-
 ## Установка проекта 
 ```shell
 git clone  git@github.com:chalvik/grafanaloki.git
-docker compose up -d 
 ```
 
+```shell
+docker compose up -d 
+```
